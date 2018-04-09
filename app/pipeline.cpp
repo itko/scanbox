@@ -311,7 +311,7 @@ void Pipeline::processFrame(FrameIndex f) {
         const auto descriptorIter = chain.descriptors().find(f);
         const Cluster& cluster = *(clusterIter->second);
         const std::shared_ptr<const ClusterDescriptor> descriptor = (descriptorIter->second);
-        controlPointsPtr->push_back((*_trajectoryBuilder)(descriptor, cluster));
+        controlPointsPtr->push_back((*_trajectoryBuilder)(descriptor, cluster, *rawPointCloud));
     }
 
     std::shared_ptr<const std::vector<Eigen::Vector3d>> controlPoints{std::move(controlPointsPtr)};
