@@ -25,6 +25,7 @@ set(source_files
         point_cloud_filtering/subsample.cpp
         registration/disparity_registration.cpp
         trajectory_builder/cog_trajectory_builder.cpp
+        color/color.cpp
         )
 
 # list here your testing files (*.test.cc) of your module

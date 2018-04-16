@@ -4,6 +4,7 @@
 ///
 
 #include "pipeline_writer.h"
+#include "color/color.h"
 #include "generic/write_csv.h"
 #include "generic/write_point_cloud.h"
 #include <boost/algorithm/string/replace.hpp>
@@ -150,12 +151,10 @@ void PipelineWriter::newClusterChains(
 
 Eigen::Vector3d PipelineWriter::colorForCluster(int clusterIndex,
                                                 int totalClusters) const {
-  double color = (double)clusterIndex / (double)totalClusters;
-  Eigen::Vector3d col;
-  col[0] = color;
-  col[1] = 1.0 - color;
-  col[2] = 0;
-  return col;
+  // For now just get a random color and return it
+  auto col = GenerateRandomColor();
+  Eigen::Vector3d color(col.data());
+  return color;
 }
 
 } // namespace MouseTrack
