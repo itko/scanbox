@@ -7,7 +7,7 @@
 #include "generic/types.h"
 [[deprecated(
     "Please use MouseTrack::FrameNumber")]] typedef MouseTrack::FrameNumber
-    FrameNumber;
+    FrameIndex;
 
 #include "generic/cluster.h"
 #include "generic/cluster_chain.h"
