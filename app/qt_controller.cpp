@@ -5,8 +5,8 @@
 
 #include "qt_controller.h"
 
-#include "main_window.h"
 #include "gui_observer.h"
+#include "main_window.h"
 #include <QApplication>
 #include <QPushButton>
 #include <boost/log/trivial.hpp>
@@ -17,11 +17,11 @@ int QtController::main(int argc, char *argv[], op::variables_map &cli_options) {
 
   // set up application
   QApplication app(argc, argv);
-    // show a button in a window
+  // show a button in a window
   MainWindow window;
 
-  GUIObserver* observer = new GUIObserver(&window);
-  pipeline().addObserver(observer);
+  std::unique_ptr<GUIObserver> observer(new GUIObserver(&window));
+  pipeline().addObserver(observer.get());
 
   window.show();
   // start pipeline
