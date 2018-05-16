@@ -16,7 +16,7 @@ namespace MouseTrack {
 GUIRefImgView::GUIRefImgView(QWidget *parent) : QWidget(parent) {
 
   setFixedSize(752, 480);
-  _image = new QLabel(this);
+  _image = std::make_unique<QLabel>(this);
 }
 
 void GUIRefImgView::draw(std::shared_ptr<const FrameWindow> f) {

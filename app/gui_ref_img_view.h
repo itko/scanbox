@@ -20,7 +20,7 @@ public:
   void draw(std::shared_ptr<const FrameWindow> f);
 
 private:
-  QLabel *_image;
+  std::unique_ptr<QLabel> _image;
 };
 
 } // namespace MouseTrack
