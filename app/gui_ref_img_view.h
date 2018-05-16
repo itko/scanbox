@@ -3,10 +3,9 @@
 ///
 ///
 
-
 #pragma once
-#include <QWidget>
 #include <QLabel>
+#include <QWidget>
 
 #include <memory>
 
@@ -15,12 +14,13 @@
 namespace MouseTrack {
 
 class GUIRefImgView : public QWidget {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit GUIRefImgView(QWidget *parent);
-    void draw(std::shared_ptr<const FrameWindow> f);
+  explicit GUIRefImgView(QWidget *parent);
+  void draw(std::shared_ptr<const FrameWindow> f);
+
 private:
-    QLabel* _image;
+  QLabel *_image;
 };
 
-} //MouseTrack
+} // namespace MouseTrack
