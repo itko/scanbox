@@ -4,14 +4,14 @@
 
 #pragma once
 
-#include "pipeline_observer.h"
 #include "main_window.h"
+#include "pipeline_observer.h"
 
 namespace MouseTrack {
 
 class GUIObserver : public PipelineObserver {
 public:
-    GUIObserver(MainWindow* window);
+  GUIObserver(MainWindow *window);
 
   /// Pipeline starts to process data
   void pipelineStarted();
@@ -21,7 +21,8 @@ public:
 
   /// When the pipeline terminates, it delivers the complete cluster chain used
   /// internally.
-  void newClusterChains(std::shared_ptr<const std::vector<ClusterChain>> chains);
+  void
+  newClusterChains(std::shared_ptr<const std::vector<ClusterChain>> chains);
 
   /// Work on frame `frame` started, it is inside the pipeline.
   void frameStart(FrameNumber frame);
@@ -58,6 +59,6 @@ public:
   // clang-format on
 
 private:
-    MainWindow* _window;
+  MainWindow *_window;
 };
 } // namespace MouseTrack

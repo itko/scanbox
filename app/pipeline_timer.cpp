@@ -21,25 +21,25 @@ void PipelineTimer::startFrameWindow(FrameNumber f) {
 }
 
 void PipelineTimer::newFrameWindow(FrameNumber f,
-                                   std::shared_ptr<const FrameWindow> window) {
+                                   std::shared_ptr<const FrameWindow>) {
   stopTimer(f, "readFrameWindow");
 }
 
-void PipelineTimer::startFrameWindowFiltering(FrameIndex f) {
+void PipelineTimer::startFrameWindowFiltering(FrameNumber f) {
   startTimer(f, "frameWindowFiltering");
 }
 
-void PipelineTimer::newFilteredFrameWindow(
-    FrameIndex f, std::shared_ptr<const FrameWindow> window) {
+void PipelineTimer::newFilteredFrameWindow(FrameNumber f,
+                                           std::shared_ptr<const FrameWindow>) {
   stopTimer(f, "frameWindowFiltering");
 }
 
-void PipelineTimer::startRegistration(FrameIndex f) {
+void PipelineTimer::startRegistration(FrameNumber f) {
   startTimer(f, "registration");
 }
 
 void PipelineTimer::newRawPointCloud(FrameNumber f,
-                                     std::shared_ptr<const PointCloud> cloud) {
+                                     std::shared_ptr<const PointCloud>) {
   stopTimer(f, "registration");
 }
 
@@ -47,8 +47,8 @@ void PipelineTimer::startPointCloudFiltering(FrameNumber f) {
   startTimer(f, "point_cloud_filtering");
 }
 
-void PipelineTimer::newFilteredPointCloud(
-    FrameNumber f, std::shared_ptr<const PointCloud> cloud) {
+void PipelineTimer::newFilteredPointCloud(FrameNumber f,
+                                          std::shared_ptr<const PointCloud>) {
   stopTimer(f, "point_cloud_filtering");
 }
 
@@ -56,8 +56,8 @@ void PipelineTimer::startClustering(FrameNumber f) {
   startTimer(f, "clustering");
 }
 
-void PipelineTimer::newClusters(
-    FrameNumber f, std::shared_ptr<const std::vector<Cluster>> clusters) {
+void PipelineTimer::newClusters(FrameNumber f,
+                                std::shared_ptr<const std::vector<Cluster>>) {
   stopTimer(f, "clustering");
 }
 
@@ -67,23 +67,22 @@ void PipelineTimer::startDescripting(FrameNumber f) {
 
 void PipelineTimer::newDescriptors(
     FrameNumber f,
-    std::shared_ptr<const std::vector<std::shared_ptr<const ClusterDescriptor>>>
-        descriptors) {
+    std::shared_ptr<
+        const std::vector<std::shared_ptr<const ClusterDescriptor>>>) {
   stopTimer(f, "descripting");
 }
 
 void PipelineTimer::startMatching(FrameNumber f) { startTimer(f, "matching"); }
 
-void PipelineTimer::newMatches(
-    FrameNumber f, std::shared_ptr<const std::vector<long>> matches) {
+void PipelineTimer::newMatches(FrameNumber f,
+                               std::shared_ptr<const std::vector<long>>) {
   stopTimer(f, "matching");
 }
 void PipelineTimer::startControlPoints(FrameNumber f) {
   startTimer(f, "controlPoints");
 }
 void PipelineTimer::newControlPoints(
-    FrameNumber f,
-    std::shared_ptr<const std::vector<Eigen::Vector3d>> controlPoints) {
+    FrameNumber f, std::shared_ptr<const std::vector<Eigen::Vector3d>>) {
   stopTimer(f, "controlPoints");
 }
 

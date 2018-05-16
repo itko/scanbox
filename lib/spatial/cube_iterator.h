@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cassert>
+
 namespace MouseTrack {
 
 namespace SpatialImpl {
@@ -44,10 +46,11 @@ public:
   /// Create an iterator which points to 0.
   /// Ignores `dims` if the number of dimensions is fixed by template
   CubeIterator(int width, int dims = -1) : _width(width) {
-    if (_Dim == -1) {
-      _it.resize(dims);
-    } else {
+    if (_Dim > 0) {
       _it.resize(_Dim);
+    } else if (_Dim == -1 && width > 0) {
+      assert(dims != -1);
+      _it.resize(dims);
     }
     setZero(_it);
   }

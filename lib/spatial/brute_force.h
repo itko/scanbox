@@ -7,6 +7,7 @@
 #include "spatial_oracle.h"
 #include <Eigen/Core>
 #include <limits>
+#include <queue>
 
 namespace MouseTrack {
 
@@ -27,30 +28,51 @@ public:
   typedef Eigen::Matrix<_Precision, _Dim, 1> Point;
 
 private:
-  PointList _points;
+  const PointList *_points = nullptr;
 
 public:
   BruteForce() {
     // empty
   }
 
-  virtual void compute(const PointList &points) { _points = points; }
-
-  virtual void compute(PointList &&points) { _points = std::move(points); }
+  void compute(const PointList &points) { _points = &points; }
 
   virtual PointIndex find_closest(const Point &p) const {
+    assert(_points != nullptr);
     PointIndex nearestP;
-    (_points.colwise() - p).colwise().squaredNorm().minCoeff(&nearestP);
+    (_points->colwise() - p).colwise().squaredNorm().minCoeff(&nearestP);
     return nearestP;
+  }
+
+  virtual std::vector<PointIndex> find_closest(const Point &p,
+                                               unsigned int k) const {
+    assert(_points != nullptr);
+    typedef std::pair<Precision, PointIndex> P;
+    std::priority_queue<P> candidates;
+    auto dists = (_points->colwise() - p).colwise().squaredNorm();
+    for (int i = 0; i < dists.cols(); i += 1) {
+      Precision d = dists(0, i);
+      candidates.push(P(d, i));
+      if (candidates.size() > k) {
+        candidates.pop();
+      }
+    }
+    std::vector<PointIndex> result;
+    while (candidates.size() > 0) {
+      result.push_back(candidates.top().second);
+      candidates.pop();
+    }
+    return result;
   }
 
   virtual std::vector<PointIndex> find_in_range(const Point &p,
                                                 const Precision r) const {
+    assert(_points != nullptr);
     std::vector<PointIndex> in_range;
     Precision r2 = r * r;
-    auto dists = (_points.colwise() - p).colwise().squaredNorm();
+    auto dists = (_points->colwise() - p).colwise().squaredNorm();
     for (int i = 0; i < dists.cols(); i += 1) {
-      double d = dists(0, i);
+      Precision d = dists(0, i);
       if (d < r2) {
         in_range.push_back(i);
       }

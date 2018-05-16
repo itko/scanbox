@@ -8,6 +8,7 @@
 #include "spatial_oracle.h"
 #include <Eigen/Core>
 #include <boost/log/trivial.hpp>
+#include <queue>
 
 namespace std {
 
@@ -69,7 +70,7 @@ private:
   typedef CubicNeighborhood<_Dim> _Neighborhood;
 
   /// Points over which we perform queries
-  PointList points;
+  const PointList *points = nullptr;
 
   /// Minimum point of bounding box
   Point bb_min;
@@ -106,14 +107,14 @@ private:
     }
     return true;
   }
-
   /// recache data
   void _compute() {
-    if (points.size() == 0) {
+    assert(points != nullptr);
+    if (points->size() == 0) {
       return;
     }
-    bb_min = points.rowwise().minCoeff();
-    bb_max = points.rowwise().maxCoeff();
+    bb_min = points->rowwise().minCoeff();
+    bb_max = points->rowwise().maxCoeff();
     bb_size = bb_max - bb_min;
 
     // add some buffer for rounding errors
@@ -135,8 +136,8 @@ private:
     grid.erase(grid.begin(), grid.end());
 
     // fill grid with indices
-    for (int i = 0; i < points.cols(); i += 1) {
-      auto j = indexOfPosition(points.col(i));
+    for (int i = 0; i < points->cols(); i += 1) {
+      auto j = indexOfPosition(points->col(i));
       auto &vec = grid[j];
       vec.push_back(i);
     }
@@ -151,41 +152,34 @@ public:
     neighborhood = _Neighborhood(std::ceil(maxR / cellWidth) + 1, dims);
   }
 
-  /// Create new grid and insert points
-  virtual void compute(const PointList &srcData) {
-    points = srcData;
+  virtual void compute(const PointList &src) {
+    points = &src;
     _compute();
   }
 
-  /// Create new grid and insert points
-  virtual void compute(PointList &&points) {
-    points = std::move(points);
-    _compute();
-  };
-
-  /// finds the nearest neighbor for a given point p
-  virtual PointIndex find_closest(const Point &p) const {
+  virtual std::vector<PointIndex> find_closest(const Point &p,
+                                               unsigned int k) const {
+    assert(points != nullptr);
     // idea: we define hollow cubes around the cell containing p, called layers
     // we search the layers from the inside to the outside
-    // if we have a closest candidate, we stop as soon as our active layer's
-    // closest point is above our candidate
+    // if we have enough closest candidates, we stop as soon as our active
+    // layer's closest point is above our furthest candidate
     auto zeroCell = indexOfPosition(p);
-    PointIndex minIndex = -1;
-    double minDist =
-        std::numeric_limits<Precision>::infinity(); // squared norm between p
-                                                    // and closest candidate
+    typedef std::pair<Precision, PointIndex> P;
+    std::priority_queue<P> neighbors;
+    neighbors.push(P(std::numeric_limits<Precision>::max(), (PointIndex)-1));
     // We only loop up to the largest bounding box dimension (assumes cube
     // shells)
     for (int l = 0; l < neighborhood.size(); l += 1) {
       const auto &layer = neighborhood[l];
       double layerDist = layer.min() * cellWidth;
-      if (minDist < layerDist * layerDist) {
-        // the closest point in the layer is further away than our best
+      if (neighbors.top().first < layerDist * layerDist) {
+        // the closest point in the layer is further away than our worst
         // candidate we can stop
         break;
       }
-      for (int i = 0; i < layer.size(); i += 1) {
-        auto cell = zeroCell + layer[i];
+      for (int i = 0; i < layer.size(); ++i) {
+        Cell cell = zeroCell + layer[i];
         // skip, if outside of bounding box
         if (!in_bb(cell)) {
           continue;
@@ -198,18 +192,30 @@ public:
           continue;
         }
         for (PointIndex cIndex : candidates->second) {
-          double dist = (points.col(cIndex) - p).squaredNorm();
-          if (dist < minDist) {
-            minDist = dist;
-            minIndex = cIndex;
+          double dist = (points->col(cIndex) - p).squaredNorm();
+          if (dist < neighbors.top().first) {
+            neighbors.push(P(dist, cIndex));
+            if (neighbors.size() > k) {
+              neighbors.pop();
+            }
           }
         }
       }
     }
-    return minIndex;
+    std::vector<PointIndex> result;
+    while (neighbors.size() > 0) {
+      auto i = neighbors.top().second;
+      if (i != (PointIndex)-1) {
+        result.push_back(i);
+      }
+      neighbors.pop();
+    }
+    return result;
   }
+
   virtual std::vector<PointIndex> find_in_range(const Point &p,
                                                 const Precision r) const {
+    assert(points != nullptr);
     std::vector<PointIndex> range;
     auto zeroCell = indexOfPosition(p);
     const double r2 = r * r;
@@ -232,7 +238,7 @@ public:
           continue;
         }
         for (PointIndex c : candidates->second) {
-          auto &v = points.col(c);
+          auto &v = points->col(c);
           double dist = (v - p).squaredNorm();
           if (dist <= r2) {
             range.push_back(c);

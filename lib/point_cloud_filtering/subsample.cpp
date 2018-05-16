@@ -22,11 +22,11 @@ PointCloud SubSample::operator()(const PointCloud &inCloud) const {
   auto min = cloud.min();
   auto max = cloud.max();
 
-  BOOST_LOG_TRIVIAL(debug) << "Filtered point cloud to " << cloud.size()
+  BOOST_LOG_TRIVIAL(debug) << "Subsampled point cloud to " << cloud.size()
                            << " points, xyz-min: [" << min[0] << ", " << min[1]
                            << ", " << min[2] << "], xyz-max: [" << max[0]
-                           << ", " << max[1] << ", " << max[2] << "]"
-                           << std::flush;
+                           << ", " << max[1] << ", " << max[2]
+                           << "] with desired points " << _desiredMaxPoints;
   return cloud;
 }
 

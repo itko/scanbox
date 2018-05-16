@@ -53,16 +53,24 @@ struct IndexAggregateF {
 };
 
 // base file names for bag files
-const std::string NORMALIZED_DISPARITY_KEY{"depth_normalized"};
-const std::string RAW_DISPARITY_KEY{"depth"};
+const std::string NORMALIZED_DISPARITY_KEY{"disparity_normalized"};
+const std::string RAW_DISPARITY_KEY{"disparity"};
 const std::string FRAME_PARAMETERS_KEY{"params"};
 const std::string REFERENCE_PICTURE_KEY{"pic"};
 const std::string ROTATION_CORRECTION_KEY{"params_R"};
 const std::string CAMERA_CHAIN_KEY{"params_camchain"};
 
-const std::set<std::string> EXPECTED_CHANNELS{
-    NORMALIZED_DISPARITY_KEY, RAW_DISPARITY_KEY, FRAME_PARAMETERS_KEY,
-    REFERENCE_PICTURE_KEY};
+// clang-format off
+typedef std::pair<std::string, std::string> CM;
+const std::map<std::string, std::string> EXPECTED_CHANNELS{
+    CM(NORMALIZED_DISPARITY_KEY, NORMALIZED_DISPARITY_KEY),
+    CM("depth_normalized", NORMALIZED_DISPARITY_KEY), // historical
+    CM(RAW_DISPARITY_KEY, RAW_DISPARITY_KEY),
+    CM("depth", RAW_DISPARITY_KEY), // historical
+    CM(FRAME_PARAMETERS_KEY, FRAME_PARAMETERS_KEY),
+    CM(REFERENCE_PICTURE_KEY, REFERENCE_PICTURE_KEY)};
+// clang-format on
+
 const std::set<std::string> EXPECTED_FILES{ROTATION_CORRECTION_KEY,
                                            CAMERA_CHAIN_KEY};
 
@@ -83,6 +91,10 @@ MatlabReader::MatlabReader(fs::path root_directory)
   preflight();
 }
 
+MatlabReader::MatlabReader() : _valid(false) {
+  // empty
+}
+
 void MatlabReader::preflight() {
 
   /// We want to work out the index range for streams and frames.
@@ -96,6 +108,7 @@ void MatlabReader::preflight() {
   /// symlinks in all other cases.
   std::unordered_map<std::string, IndexAggregateSF> aggSF;
   std::unordered_map<std::string, IndexAggregateF> aggF;
+  _seenFrameNumbers.clear();
   std::regex nameShape(
       "^([A-Za-z0-9_-]+?)(?:_s_([0-9]+))?_f_([0-9]+)\\.([A-Za-z0-9]+)$",
       std::regex::ECMAScript);
@@ -121,7 +134,7 @@ void MatlabReader::preflight() {
       continue;
     }
     // we have now two different paths:
-    // p.path(): the representation we should use to recognize
+    // p.path(): the representation we should use to recognize the file
     // path: path to the actual file, might be called anything, but this is the
     // thing we want to store
     auto exp = EXPECTED_FILES.find(p.path().stem().string());
@@ -198,6 +211,14 @@ void MatlabReader::preflight() {
       _ignoredPaths.push_back(p.path());
       continue;
     }
+    // normalize channel name of expected channel
+    auto chIt = EXPECTED_CHANNELS.find(channel);
+    if (chIt != EXPECTED_CHANNELS.end()) {
+      channel = chIt->second;
+    }
+
+    _seenFrameNumbers.insert(frame);
+
     BOOST_LOG_TRIVIAL(trace) << "Adding frame file " << path.string()
                              << " from " << p.path().string();
     _files.frames[ElementKey(stream, frame, channel)].insert(path);
@@ -233,15 +254,55 @@ void MatlabReader::preflight() {
     _beginFrame = 0;
     _endFrame = 0;
     return;
-  } else {
-    _beginStream = firstStream;
-    _endStream = lastStream + 1;
-    _beginFrame = firstFrame;
-    _endFrame = lastFrame + 1;
   }
+  // boundaries look ok
+  _beginStream = firstStream;
+  _endStream = lastStream + 1;
+  _beginFrame = firstFrame;
+  _endFrame = lastFrame + 1;
 
+  // figure out, which frames are complete
+  _completeFrameNumbers.clear();
+  for (const auto &f : _seenFrameNumbers) {
+    // check if all required files for frame `f` are available
+    if (!fileExists(ElementKey(-1, f, FRAME_PARAMETERS_KEY))) {
+      // no point in going further
+      break;
+    }
+    bool complete = true;
+    // check if all required files for frame `f` and stream `s` are available
+    for (auto s = beginStream(); s < endStream(); ++s) {
+      if (!fileExists(ElementKey(s, f, NORMALIZED_DISPARITY_KEY))) {
+        complete = false;
+        break;
+      }
+      if (!fileExists(ElementKey(s, f, REFERENCE_PICTURE_KEY))) {
+        complete = false;
+        break;
+      }
+    }
+    // all required files there
+    if (complete) {
+      _completeFrameNumbers.insert(f);
+    }
+  }
+  if (_completeFrameNumbers.empty()) {
+    _beginFrame = 0;
+    _endFrame = 0;
+    return;
+  }
+  _activeFrame = _completeFrameNumbers.begin();
+
+  _beginFrame = *_completeFrameNumbers.begin();
+  _endFrame = *_completeFrameNumbers.rbegin() + 1;
+
+  // cache files we need for every frame
   _cache.rotationCorrections = readRotationCorrections();
   _cache.camchain = readCamchain();
+}
+
+bool MatlabReader::fileExists(const ElementKey &key) const {
+  return _files.frames.find(key) != _files.frames.end();
 }
 
 bool MatlabReader::valid() const { return _valid; }
@@ -258,9 +319,25 @@ FrameNumber MatlabReader::beginFrame() const { return _beginFrame; }
 
 FrameNumber MatlabReader::endFrame() const { return _endFrame; }
 
-void MatlabReader::setBeginFrame(FrameNumber f) { _beginFrame = f; }
+void MatlabReader::setBeginFrame(FrameNumber f) {
+  _beginFrame = f;
+  _activeFrame = _completeFrameNumbers.lower_bound(f);
+}
 
 void MatlabReader::setEndFrame(FrameNumber f) { _endFrame = f; }
+
+FrameNumber MatlabReader::nextFrame() {
+  if (_activeFrame == _completeFrameNumbers.end()) {
+    return endFrame();
+  }
+  FrameNumber nextF = *_activeFrame;
+  ++_activeFrame;
+  return nextF;
+}
+bool MatlabReader::hasNextFrame() const {
+  return _activeFrame != _completeFrameNumbers.end() &&
+         *_activeFrame < endFrame();
+}
 
 const std::vector<fs::path> &MatlabReader::ignoredPaths() const {
   return _ignoredPaths;
@@ -335,7 +412,14 @@ DisparityMap MatlabReader::readNormalizedDisparityMap(StreamNumber s,
   const auto candidatesPtr =
       _files.frames.find(ElementKey(s, f, NORMALIZED_DISPARITY_KEY));
   if (candidatesPtr == _files.frames.end()) {
-    throw "No file found.";
+    if (_normalizedDisparityRequired) {
+      BOOST_LOG_TRIVIAL(info)
+          << "No normalized disparity map file found for frame " << f
+          << " and stream " << s;
+      throw "No normalized disparity map file found.";
+    }
+    // return empty map
+    return DisparityMap{};
   }
   fs::path p = chooseCandidate(candidatesPtr->second);
   BOOST_LOG_TRIVIAL(trace) << "readNormalizedDisparityMap: " << p.string();
@@ -350,7 +434,13 @@ DisparityMap MatlabReader::readRawDisparityMap(StreamNumber s,
   const auto candidatesPtr =
       _files.frames.find(ElementKey(s, f, RAW_DISPARITY_KEY));
   if (candidatesPtr == _files.frames.end()) {
-    throw "No file found.";
+    if (_rawDisparityRequired) {
+      BOOST_LOG_TRIVIAL(info) << "No raw disparity map file found for frame "
+                              << f << " and stream " << s;
+      throw "No raw disparity map file found.";
+    }
+    // return empty map
+    return DisparityMap{};
   }
   fs::path p = chooseCandidate(candidatesPtr->second);
   BOOST_LOG_TRIVIAL(trace) << "readRawDisparityMap: " << p.string();
@@ -364,7 +454,12 @@ Eigen::MatrixXd MatlabReader::readChannelParameters(FrameNumber f) const {
   const auto candidatesPtr =
       _files.frames.find(ElementKey(-1, f, FRAME_PARAMETERS_KEY));
   if (candidatesPtr == _files.frames.end()) {
-    throw "No file found.";
+    if (_frameParametersRequired) {
+      BOOST_LOG_TRIVIAL(info)
+          << "No channel parameters file found for frame " << f;
+      throw "No channel paramters file found.";
+    }
+    return Eigen::MatrixXd{};
   }
   fs::path p = chooseCandidate(candidatesPtr->second);
   BOOST_LOG_TRIVIAL(trace) << "readChannelParameters: " << p.string();
@@ -376,7 +471,12 @@ Picture MatlabReader::readPicture(StreamNumber s, FrameNumber f) const {
   const auto candidatesPtr =
       _files.frames.find(ElementKey(s, f, REFERENCE_PICTURE_KEY));
   if (candidatesPtr == _files.frames.end()) {
-    throw "No file found.";
+    if (_referencePictureRequired) {
+      BOOST_LOG_TRIVIAL(info) << "No reference picture file found for frame "
+                              << f << " and stream " << s;
+      throw "No reference picture file found.";
+    }
+    return Picture{};
   }
   fs::path p = chooseCandidate(candidatesPtr->second);
   BOOST_LOG_TRIVIAL(trace) << "readPicture: " << p.string();

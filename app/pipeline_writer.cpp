@@ -71,11 +71,12 @@ void PipelineWriter::newClusters(
     }
     largeClusters.push_back(c);
   }
+  auto clusterColors = nColors(largeClusters.size());
   for (size_t ci = 0; ci < largeClusters.size(); ++ci) {
     const auto &cluster = largeClusters[ci];
     for (auto i : cluster.points()) {
       assert(i < cloud.size());
-      auto color = colorForCluster(ci, largeClusters.size());
+      auto color = clusterColors[ci];
       cloud[i].r(color[0]);
       cloud[i].g(color[1]);
       cloud[i].b(color[2]);
@@ -124,12 +125,13 @@ std::string PipelineWriter::insertFrame(const std::string &templatePath,
 
 void PipelineWriter::newClusterChains(
     std::shared_ptr<const std::vector<ClusterChain>> chains) {
+  auto clusterColors = nColors(chains->size());
   for (auto cloudIt : _clouds) {
     FrameNumber f = cloudIt.first;
     PointCloud cloud = *cloudIt.second;
     for (size_t chainIndex = 0; chainIndex < chains->size(); ++chainIndex) {
       const ClusterChain &chain = (*chains)[chainIndex];
-      const auto clus = chain.clusters();
+      const auto &clus = chain.clusters();
       auto cluster = clus.find(f);
       auto end = clus.end();
       if (cluster == end) {
@@ -138,7 +140,7 @@ void PipelineWriter::newClusterChains(
       const Cluster &clu = *(cluster->second);
       for (auto i : clu.points()) {
         assert(i < cloud.size());
-        auto color = colorForCluster(chainIndex, chains->size());
+        auto color = clusterColors[chainIndex];
         cloud[i].r(color[0]);
         cloud[i].g(color[1]);
         cloud[i].b(color[2]);
@@ -149,12 +151,9 @@ void PipelineWriter::newClusterChains(
   }
 }
 
-Eigen::Vector3d PipelineWriter::colorForCluster(int clusterIndex,
-                                                int totalClusters) const {
-  // For now just get a random color and return it
-  auto col = GenerateRandomColor();
-  Eigen::Vector3d color(col.data());
-  return color;
+std::vector<std::vector<double>> PipelineWriter::nColors(int n) const {
+  auto cols = GenerateNColors(n);
+  return cols;
 }
 
 } // namespace MouseTrack

@@ -16,90 +16,89 @@ void PipelineObserver::pipelineTerminated() {
 }
 
 void PipelineObserver::newClusterChains(
-    std::shared_ptr<const std::vector<ClusterChain>> chains) {
+    std::shared_ptr<const std::vector<ClusterChain>>) {
   // empty
 }
 
-void PipelineObserver::frameStart(FrameNumber frame) {
+void PipelineObserver::frameStart(FrameNumber) {
   // empty
 }
 
-void PipelineObserver::frameEnd(FrameNumber frame) {
+void PipelineObserver::frameEnd(FrameNumber) {
   // empty
 }
 
-void PipelineObserver::startFrameWindow(FrameNumber f) {
+void PipelineObserver::startFrameWindow(FrameNumber) {
   // empty
 }
 
-void PipelineObserver::newFrameWindow(
-    FrameNumber f, std::shared_ptr<const FrameWindow> window) {
+void PipelineObserver::newFrameWindow(FrameNumber,
+                                      std::shared_ptr<const FrameWindow>) {
   // empty
 }
 
-void PipelineObserver::startFrameWindowFiltering(FrameIndex f) {
+void PipelineObserver::startFrameWindowFiltering(FrameNumber) {
   // empty
 }
 
 void PipelineObserver::newFilteredFrameWindow(
-    FrameIndex f, std::shared_ptr<const FrameWindow> window) {
+    FrameNumber, std::shared_ptr<const FrameWindow>) {
   // empty
 }
 
-void PipelineObserver::startRegistration(FrameIndex f) {
+void PipelineObserver::startRegistration(FrameNumber) {
   // empty
 }
 
-void PipelineObserver::newRawPointCloud(
-    FrameNumber f, std::shared_ptr<const PointCloud> cloud) {
+void PipelineObserver::newRawPointCloud(FrameNumber,
+                                        std::shared_ptr<const PointCloud>) {
   // empty
 }
 
-void PipelineObserver::startPointCloudFiltering(FrameNumber f) {
+void PipelineObserver::startPointCloudFiltering(FrameNumber) {
   // empty
 }
 
 void PipelineObserver::newFilteredPointCloud(
-    FrameNumber f, std::shared_ptr<const PointCloud> cloud) {
+    FrameNumber, std::shared_ptr<const PointCloud>) {
   // empty
 }
 
-void PipelineObserver::startClustering(FrameNumber f) {
+void PipelineObserver::startClustering(FrameNumber) {
   // empty
 }
 
 void PipelineObserver::newClusters(
-    FrameNumber f, std::shared_ptr<const std::vector<Cluster>> cluster) {
+    FrameNumber, std::shared_ptr<const std::vector<Cluster>>) {
   // empty
 }
 
-void PipelineObserver::startDescripting(FrameNumber f) {
+void PipelineObserver::startDescripting(FrameNumber) {
   // empty
 }
 
 void PipelineObserver::newDescriptors(
-    FrameNumber f,
-    std::shared_ptr<const std::vector<std::shared_ptr<const ClusterDescriptor>>>
-        descriptors) {
+    FrameNumber,
+    std::shared_ptr<
+        const std::vector<std::shared_ptr<const ClusterDescriptor>>>) {
   // empty
 }
 
-void PipelineObserver::startMatching(FrameNumber f) {
+void PipelineObserver::startMatching(FrameNumber) {
   // empty
 }
 
-void PipelineObserver::newMatches(
-    FrameNumber f, std::shared_ptr<const std::vector<long>> matches) {
+void PipelineObserver::newMatches(FrameNumber,
+                                  std::shared_ptr<const std::vector<long>>) {
   // empty
 }
 
-void PipelineObserver::startControlPoints(FrameNumber f) {
+void PipelineObserver::startControlPoints(FrameNumber) {
   // empty
 }
 
 void PipelineObserver::newControlPoints(
-    FrameNumber f,
-    std::shared_ptr<const std::vector<Eigen::Vector3d>> controlPoints) {
+    FrameNumber, std::shared_ptr<const std::vector<Eigen::Vector3d>>) {
   // empty
 }
 

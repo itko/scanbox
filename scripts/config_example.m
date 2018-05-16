@@ -25,6 +25,9 @@ startFrame = 1;
 % if maxProcessFrames = 0: only startFrame will be processed
 maxProcessFrames = 1000000000; 
 
+% Export raw disparity maps that include debug values and aren't scaled?
+export_raw_disparity = false;
+
 % does not overwrite complete frames on disk (but overwrites all files, if
 % some are missing)
 use_cache = true;

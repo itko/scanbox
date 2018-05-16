@@ -116,6 +116,24 @@ Eigen::VectorXd PointCloud::Point::eigenVec() const {
   return Eigen::Vector4d(x(), y(), z(), intensity());
 }
 
+void PointCloud::Point::operator=(const PointCloud::Point &o) {
+  x() = o.x();
+  y() = o.y();
+  z() = o.z();
+  r(o.r());
+  g(o.g());
+  b(o.b());
+}
+
+void PointCloud::Point::operator=(const PointCloud::ConstantPoint &o) {
+  x() = o.x();
+  y() = o.y();
+  z() = o.z();
+  r(o.r());
+  g(o.g());
+  b(o.b());
+}
+
 // ConstantPoint implementation
 
 PointCloud::ConstantPoint::ConstantPoint(const PointCloud &cloud, size_t i)

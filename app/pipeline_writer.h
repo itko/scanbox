@@ -51,8 +51,7 @@ private:
 
   std::string insertFrame(const std::string &templatePath, FrameNumber f) const;
 
-  /// index in [0, totalClusters)
-  Eigen::Vector3d colorForCluster(int clusterIndex, int totalClusters) const;
+  std::vector<std::vector<double>> nColors(int n) const;
 };
 
 } // namespace MouseTrack

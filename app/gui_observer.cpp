@@ -7,9 +7,7 @@
 
 namespace MouseTrack {
 
-GUIObserver::GUIObserver(MainWindow *window) {
-    _window = window;
-}
+GUIObserver::GUIObserver(MainWindow *window) { _window = window; }
 
 void GUIObserver::pipelineStarted() {
   // empty
@@ -36,10 +34,10 @@ void GUIObserver::startFrameWindow(FrameNumber f) {
   // empty
 }
 
-void GUIObserver::newFrameWindow(
-    FrameNumber f, std::shared_ptr<const FrameWindow> window) {
-   _window->setFrameNumber(f);
-   _window->setFrameWindow(window);
+void GUIObserver::newFrameWindow(FrameNumber f,
+                                 std::shared_ptr<const FrameWindow> window) {
+  _window->setFrameNumber(f);
+  _window->setFrameWindow(window);
 }
 
 void GUIObserver::startFrameWindowFiltering(FrameIndex f) {
@@ -55,8 +53,8 @@ void GUIObserver::startRegistration(FrameIndex f) {
   // empty
 }
 
-void GUIObserver::newRawPointCloud(
-    FrameNumber f, std::shared_ptr<const PointCloud> cloud) {
+void GUIObserver::newRawPointCloud(FrameNumber f,
+                                   std::shared_ptr<const PointCloud> cloud) {
   // empty
 }
 
@@ -75,7 +73,7 @@ void GUIObserver::startClustering(FrameNumber f) {
 
 void GUIObserver::newClusters(
     FrameNumber f, std::shared_ptr<const std::vector<Cluster>> cluster) {
- //empty
+  // empty
 }
 
 void GUIObserver::startDescripting(FrameNumber f) {
@@ -93,8 +91,8 @@ void GUIObserver::startMatching(FrameNumber f) {
   // empty
 }
 
-void GUIObserver::newMatches(
-    FrameNumber f, std::shared_ptr<const std::vector<long>> matches) {
+void GUIObserver::newMatches(FrameNumber f,
+                             std::shared_ptr<const std::vector<long>> matches) {
   // empty
 }
 

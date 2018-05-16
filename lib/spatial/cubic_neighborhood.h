@@ -48,7 +48,7 @@ template <int _Dim> class CubicNeighborhood {
 
     _layers.resize(maxLayer + 1);
     for (int i = 0; i < maxLayer + 1; i += 1) {
-      _layers[i] = CubicNeighborhoodLayer<_Dim>(std::move(layerCells[i]));
+      _layers[i] = CubicNeighborhoodLayer<_Dim>(std::move(layerCells[i]), dims);
     }
   }
 
@@ -60,13 +60,17 @@ public:
   ///
   /// `dims`: number of dimensions, ignored if defined by template
   CubicNeighborhood(int maxLayer, int dims = -1) {
-    constexpr int d = _Dim == -1 ? dims : _Dim;
+    int d = _Dim == -1 ? dims : _Dim;
     if (_Dim == -1 && dims <= 0) {
-      throw "CubicNeighborhood needs positive number of dimensions.";
+      throw "Dynamic sized CubicNeighborhood needs positive number of "
+            "dimensions.";
     }
     _createLayersUpTo(maxLayer, d);
   }
-  CubicNeighborhood() { _createLayersUpTo(0, _Dim); }
+  /// creates empty neighborhood
+  CubicNeighborhood() {
+    // empty
+  }
   int size() const { return _layers.size(); }
   const CubicNeighborhoodLayer<_Dim> &operator[](int l) const {
     return _layers[l];
@@ -87,7 +91,7 @@ public:
   /// Construct cells of layer `l`
   CubicNeighborhoodLayer(std::vector<CellCoordinate<_Dim>> &&cells,
                          int dims = -1) {
-    constexpr int dim = _Dim == -1 ? dims : _Dim;
+    int dim = _Dim == -1 ? dims : _Dim;
     if (_Dim == -1 && dims <= 0) {
       throw "Dynamic sized neighborhood layer needs positive number of "
             "dimension.";

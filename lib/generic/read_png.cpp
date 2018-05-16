@@ -24,7 +24,10 @@ Eigen::MatrixXi read_png(const std::string &path) {
     throw "File could not be opened.";
   }
   png_byte header[8];
-  fread(header, 1, 8, fp);
+  size_t transfered = fread(header, 1, 8, fp);
+  if (transfered != 8) {
+    throw "read_png: couldn't read header from png file.";
+  }
   if (0 != png_sig_cmp(header, 0, 8)) {
     throw "File is not a PNG.";
   }
@@ -52,10 +55,8 @@ Eigen::MatrixXi read_png(const std::string &path) {
   const int width = png_get_image_width(png_ptr, info_ptr);
   const int height = png_get_image_height(png_ptr, info_ptr);
   const png_byte color_type = png_get_color_type(png_ptr, info_ptr);
-  const png_byte bit_depth = png_get_bit_depth(png_ptr, info_ptr);
   const png_byte channels = png_get_channels(png_ptr, info_ptr);
 
-  int number_of_passes = png_set_interlace_handling(png_ptr);
   png_read_update_info(png_ptr, info_ptr);
 
   /* read file */

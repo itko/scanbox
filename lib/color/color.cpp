@@ -17,21 +17,14 @@ namespace MouseTrack {
 /// Will return a list of N rgb values that are as different from each other as
 /// possible
 std::vector<std::vector<double>> GenerateNColors(int n) {
-  // Only 256 colours supported.
-  // TODO add repetition so if user asks for more than 256, we loop ver the
-  // colours
-  if (n > 256) {
-    n = 256;
-    BOOST_LOG_TRIVIAL(warning) << "Attempting to get more than 256 colours. "
-                                  "Only 256 will be returned.";
-  }
+  int nmod = std::min(256, n);
   std::vector<unsigned char> intensity;
   if (n == 1) {
     intensity.push_back(0);
   } else {
     // Grayscale intensity should be equally spread out
-    for (unsigned char i = 0; i < (n - 1); i++) {
-      intensity.push_back(256. / (double)(n - 1) * i);
+    for (unsigned char i = 0; i < (nmod - 1); i++) {
+      intensity.push_back(256. / (double)(nmod - 1) * i);
     }
     // Last value is 255
     intensity.push_back(255);
@@ -44,6 +37,9 @@ std::vector<std::vector<double>> GenerateNColors(int n) {
   for (auto i : intensity) {
     colours.push_back({coloured.at<Vec3b>(0, i)[2], coloured.at<Vec3b>(0, i)[1],
                        coloured.at<Vec3b>(0, i)[0]});
+  }
+  for (int i = 256; i < n; ++i) {
+    colours.push_back(colours[i % 256]);
   }
   return colours;
 }

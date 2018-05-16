@@ -18,23 +18,24 @@ Pipeline::Pipeline()
 
 // clang-format off
 Pipeline::Pipeline(std::unique_ptr<Reader> reader,
-                   std::unique_ptr<FrameWindowFiltering> windowFiltering,
+                   std::vector<std::unique_ptr<FrameWindowFiltering>>&& windowFiltering,
                    std::unique_ptr<Registration> registration,
-                   std::unique_ptr<PointCloudFiltering> cloudFiltering,
+                   std::vector<std::unique_ptr<PointCloudFiltering>>&& cloudFiltering,
                    std::unique_ptr<Clustering> clustering,
                    std::unique_ptr<Descripting> descripting,
                    std::unique_ptr<Matching> matching,
                    std::unique_ptr<TrajectoryBuilder> trajectoryBuilder)
-    : _controller_should_run(false), 
-      _controller_running(false),
-      _controller_terminated(true), 
+    :
       _delegate(nullptr),
-      _frameWindowFiltering(std::move(windowFiltering)),
+      _controller_should_run(false),
+      _controller_running(false),
+      _controller_terminated(true),
       _reader(std::move(reader)), 
+      _frameWindowFiltering(std::move(windowFiltering)),
       _registration(std::move(registration)),
       _cloudFiltering(std::move(cloudFiltering)),
       _clustering(std::move(clustering)),
-      _descripting(std::move(descripting)), 
+      _descripting(std::move(descripting)),
       _matching(std::move(matching)),
       _trajectoryBuilder(std::move(trajectoryBuilder)) {
   // clang-format on
@@ -117,10 +118,7 @@ void Pipeline::_start() {
   _controller = std::thread([this]() { controllerStart(); });
 }
 
-void Pipeline::stop() {
-  std::lock_guard<std::mutex> lock(_controller_mutex);
-  _stop();
-}
+void Pipeline::stop() { _stop(); }
 
 void Pipeline::_stop() {
   BOOST_LOG_TRIVIAL(debug) << "Stop signal sent to controller thread.";
@@ -200,27 +198,31 @@ void Pipeline::runPipeline() {
       FrameNumber f =
           askDelegate([](PipelineDelegate *d) { return d->nextFrame(); });
       if (terminateEarly()) {
-        return;
+        break;
       }
-      processFrame(f);
+      processFrameSafe(f);
     }
   } else {
     // no delegate set, fall back to reader
-    for (FrameNumber f = _reader->beginFrame(); f < _reader->endFrame(); ++f) {
+    while (_reader->hasNextFrame()) {
+      FrameNumber f = _reader->nextFrame();
       if (terminateEarly()) {
-        return;
+        break;
       }
-      processFrame(f);
+      processFrameSafe(f);
     }
   }
 
-  std::unique_ptr<std::vector<ClusterChain>> chainsPtr{
-      new std::vector<ClusterChain>()};
-  *chainsPtr = _clusterChains;
-  std::shared_ptr<const std::vector<ClusterChain>> chains{std::move(chainsPtr)};
+  if (!_clusterChains.empty()) {
+    std::unique_ptr<std::vector<ClusterChain>> chainsPtr{
+        new std::vector<ClusterChain>()};
+    *chainsPtr = std::move(_clusterChains);
+    std::shared_ptr<const std::vector<ClusterChain>> chains{
+        std::move(chainsPtr)};
 
-  forallObservers(
-      [&chains](PipelineObserver *o) { o->newClusterChains(chains); });
+    forallObservers(
+        [&chains](PipelineObserver *o) { o->newClusterChains(chains); });
+  }
 }
 
 bool Pipeline::terminateEarly() {
@@ -229,6 +231,24 @@ bool Pipeline::terminateEarly() {
     return true;
   }
   return false;
+}
+
+void Pipeline::processFrameSafe(FrameNumber f) {
+  try {
+    processFrame(f);
+  } catch (const std::string &e) {
+    BOOST_LOG_TRIVIAL(warning)
+        << "Exception while processing frame " << f << ": " << e;
+  } catch (const char *e) {
+    BOOST_LOG_TRIVIAL(warning)
+        << "Exception while processing frame " << f << ": " << e;
+  } catch (int e) {
+    BOOST_LOG_TRIVIAL(warning)
+        << "Exception while processing frame " << f << ": " << e;
+  } catch (const std::exception &e) {
+    BOOST_LOG_TRIVIAL(warning)
+        << "Exception while processing frame " << f << ": " << e.what();
+  }
 }
 
 void Pipeline::processFrame(FrameNumber f) {
@@ -249,14 +269,16 @@ void Pipeline::processFrame(FrameNumber f) {
   }
 
   // optional: frame window point cloud
-  if (_frameWindowFiltering != nullptr) {
+  if (!_frameWindowFiltering.empty()) {
     forallObservers(
         [=](PipelineObserver *o) { o->startFrameWindowFiltering(f); });
-    std::unique_ptr<FrameWindow> filteredFrameWindowPtr(new FrameWindow());
-    (*filteredFrameWindowPtr) = (*_frameWindowFiltering)(*window);
-    // replace raw frame window
-    window =
-        std::shared_ptr<const FrameWindow>{std::move(filteredFrameWindowPtr)};
+    for (const auto &filter : _frameWindowFiltering) {
+      std::unique_ptr<FrameWindow> filteredFrameWindowPtr(new FrameWindow());
+      (*filteredFrameWindowPtr) = (*filter)(*window);
+      // replace raw frame window
+      window =
+          std::shared_ptr<const FrameWindow>{std::move(filteredFrameWindowPtr)};
+    }
     forallObservers(
         [=](PipelineObserver *o) { o->newFilteredFrameWindow(f, window); });
 
@@ -286,14 +308,16 @@ void Pipeline::processFrame(FrameNumber f) {
   }
 
   // optional: filter point cloud
-  if (_cloudFiltering != nullptr) {
+  if (!_cloudFiltering.empty()) {
     forallObservers(
         [=](PipelineObserver *o) { o->startPointCloudFiltering(f); });
-    std::unique_ptr<PointCloud> filteredPointCloudPtr(new PointCloud());
-    (*filteredPointCloudPtr) = (*_cloudFiltering)(*pointCloud);
-    // replace raw point cloud
-    pointCloud =
-        std::shared_ptr<const PointCloud>{std::move(filteredPointCloudPtr)};
+    for (const auto &filter : _cloudFiltering) {
+      std::unique_ptr<PointCloud> filteredPointCloudPtr(new PointCloud());
+      (*filteredPointCloudPtr) = (*filter)(*pointCloud);
+      // replace raw point cloud
+      pointCloud =
+          std::shared_ptr<const PointCloud>{std::move(filteredPointCloudPtr)};
+    }
     forallObservers(
         [=](PipelineObserver *o) { o->newFilteredPointCloud(f, pointCloud); });
 

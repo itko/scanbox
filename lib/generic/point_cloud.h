@@ -25,6 +25,8 @@ class PointCloud {
   // concept of single points (we basically emulate AoS). Never done this
   // before, should be fun.
 public:
+  class Point;
+  class ConstantPoint;
   /// The Point class is a collection of accessors allowing to manipulate the
   /// values inside the PointCloud in an intuitive way.
   class Point {
@@ -84,6 +86,12 @@ public:
 
     /// Convert to dx1 Eigen Matrix
     Eigen::VectorXd eigenVec() const;
+
+    /// assignment
+    void operator=(const Point &other);
+
+    /// assignment
+    void operator=(const ConstantPoint &other);
   };
 
   /// Exactly the same as `Point` but it only provides read-only access to the

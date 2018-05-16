@@ -25,6 +25,9 @@ public:
   /// directory
   MatlabReader(fs::path root_directory);
 
+  /// Default constructor
+  MatlabReader();
+
   /// true if constructor decided, the file system is formatted properly, false
   /// otherwise
   virtual bool valid() const;
@@ -47,7 +50,13 @@ public:
   /// Index of first non existing frame at the end
   virtual FrameNumber endFrame() const;
 
-  /// Increase lower bound of frame range.
+  /// Return next frame number and increment internal pointer to next frame
+  virtual FrameNumber nextFrame();
+
+  virtual bool hasNextFrame() const;
+
+  /// Increase lower bound of frame range. Also sets the active frame for
+  /// FrameIterable to the first existing frame larger/equal to `f`
   void setBeginFrame(FrameNumber f);
 
   /// Lower upper bound of frame range.
@@ -145,11 +154,39 @@ private:
   /// We collect expected paths here
   FilePaths _files;
 
+  /// All indexes we've seen (corresponding frames might not be complete)
+  std::set<FrameNumber> _seenFrameNumbers;
+
+  /// Indexes of all complete frames (all required data available)
+  std::set<FrameNumber> _completeFrameNumbers;
+
+  /// Points to the next active valid frame number starting at the lowest one.
+  /// If all frames are consumed, it points to the end of
+  /// `_completeFrameNumbers`.
+  std::set<FrameNumber>::iterator _activeFrame;
+
   /// Some files are expected to be accessed many times, we cache them here
   ConstParameters _cache;
+
   /// number of symlinks to evaluate (0: don't follow symlinks, 1: evaluate one
   /// link, etc.)
   int _followSymlinkDepth = 1000;
+
+  /// if true: fail if no disparity map file is available
+  /// if false: set empty map
+  bool _normalizedDisparityRequired = true;
+
+  /// if true: fail if no disparity map file is available
+  /// if false: set empty map
+  bool _rawDisparityRequired = false;
+
+  /// if true: fail if no parameters file is available
+  /// if false: set empty parameters
+  bool _frameParametersRequired = true;
+
+  /// if true: fail if no reference picture file is available
+  /// if false: set empty reference picture
+  bool _referencePictureRequired = true;
 
   /// Assumes an existing `_root` directory. It scans the directory and collects
   /// all filenames that might interest us.
@@ -185,6 +222,9 @@ private:
   /// If there are multiple files mapping to the same key, this method tries to
   /// work out the best match
   fs::path chooseCandidate(const std::set<fs::path> &candidates) const;
+
+  /// Check if file exists
+  bool fileExists(const ElementKey &key) const;
 };
 
 } // namespace MouseTrack
