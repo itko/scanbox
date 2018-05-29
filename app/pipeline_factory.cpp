@@ -5,11 +5,16 @@
 
 #include "pipeline_factory.h"
 
+#include "generic/read_csv.h"
+#include "generic/resolve_symlink.h"
+
 #include "frame_window_filtering/background_subtraction.h"
 #include "frame_window_filtering/disparity_bilateral.h"
 #include "frame_window_filtering/disparity_gaussian_blur.h"
 #include "frame_window_filtering/disparity_median.h"
 #include "frame_window_filtering/disparity_morphology.h"
+#include "frame_window_filtering/hog_labeling.h"
+#include "frame_window_filtering/strict_labeling.h"
 
 #include "matching/nearest_neighbour.h"
 
@@ -27,6 +32,7 @@
 #include "point_cloud_filtering/subsample.h"
 
 #include "clustering/kmeans.h"
+#include "clustering/label_clustering.h"
 #include "clustering/mean_shift.h"
 #include "clustering/mean_shift_cpu_optimized.h"
 #include "clustering/single_cluster.h"
@@ -360,6 +366,55 @@ PipelineFactory::getWindowFiltering(const std::string &target,
     ptr->cage_frame(cageWindow);
     return ptr;
   }
+  if (target == "strict-labeling") {
+    return std::make_unique<StrictLabeling>();
+  }
+  if (target == "hog-labeling") {
+    if (options.count("hog-labeling-train") == 0) {
+      BOOST_LOG_TRIVIAL(info) << "HOG labeling needs training data, please "
+                                 "provide a path via "
+                                 "--hog-labeling-train=<path>";
+      return nullptr;
+    }
+    std::string trainPath = options["hog-labeling-train"].as<std::string>();
+    fs::path trainP(resolve_symlink(trainPath, 100));
+    if (!fs::is_regular_file(trainP)) {
+      BOOST_LOG_TRIVIAL(info)
+          << "Provided path " << trainPath << " for training data resolved to "
+          << trainP << ". Path must end at regular file.";
+      return nullptr;
+    }
+    auto vecTrain = read_csv(trainPath);
+    if (vecTrain.empty()) {
+      BOOST_LOG_TRIVIAL(info) << "Training file is empty.";
+      return nullptr;
+    }
+    // cols are samples, rows are dimensions
+    int dimensions = vecTrain[0].size() - 1;
+    int samples = vecTrain.size();
+    BOOST_LOG_TRIVIAL(debug) << "Found " << samples << " training samples of "
+                             << dimensions << " dimensions.";
+    BOOST_LOG_TRIVIAL(trace) << "Reading X_train ...";
+    HogLabeling::Mat X_train(dimensions, samples);
+    for (int s = 0; s < samples; ++s) {
+      for (int d = 0; d < dimensions; ++d) {
+        const auto &str = vecTrain[s][d + 1];
+        double v = std::stod(str);
+        X_train(d, s) = v;
+      }
+    }
+    BOOST_LOG_TRIVIAL(trace) << "Reading y_train ...";
+    HogLabeling::Vec y_train(samples);
+    for (int s = 0; s < samples; ++s) {
+      const auto &str = vecTrain[s][0];
+      double d = std::stod(str);
+      int v = d;
+      y_train[s] = v;
+    }
+    auto ptr = std::make_unique<HogLabeling>();
+    ptr->train(X_train, y_train);
+    return ptr;
+  }
   if (target == "none") {
     return nullptr;
   }
@@ -458,6 +513,10 @@ PipelineFactory::getClustering(const op::variables_map &options) const {
         options["kmeans-assignment-threshold"].as<double>());
     BOOST_LOG_TRIVIAL(debug) << ptr->K();
     return ptr;
+  }
+  if (target == "label-clustering") {
+    BOOST_LOG_TRIVIAL(debug) << "Creating labelClustering";
+    return std::make_unique<LabelClustering>();
   }
 
   return nullptr;

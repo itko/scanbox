@@ -24,11 +24,14 @@ std::vector<PointIndex> &Cluster::points() { return _points; }
 const std::vector<PointIndex> &Cluster::points() const { return _points; }
 
 Eigen::VectorXd Cluster::center_of_gravity(const PointCloud &cloud) const {
-  Eigen::Vector4d cog(0, 0, 0, 0);
+  Eigen::VectorXd cog;
+  cog.setZero(cloud.charDim());
   for (size_t i = 0; i < points().size(); i++) {
-    cog += cloud[points()[i]].eigenVec();
+    cog += cloud[points()[i]].characteristic();
   }
-  cog /= points().size();
+  if (points().size() > 0) {
+    cog /= points().size();
+  }
   return cog;
 }
 

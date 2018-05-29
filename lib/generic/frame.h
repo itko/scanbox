@@ -16,6 +16,7 @@ struct Frame {
   DisparityMap normalizedDisparityMap;
   DisparityMap rawDisparityMap;
   PictureD referencePicture;
+  std::vector<PictureD> labels;
   Precision focallength;
   Precision baseline;
   Precision ccx;

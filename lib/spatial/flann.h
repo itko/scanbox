@@ -59,6 +59,7 @@ public:
 
   virtual std::vector<PointIndex> find_closest(const Point &p,
                                                unsigned int k) const {
+    assert(k >= 1);
     // d: dimensions
     // k: desired nearest neighbors
 

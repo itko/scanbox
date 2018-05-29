@@ -19,8 +19,8 @@ int SubSample::desiredMaxPoints() const { return _desiredMaxPoints; }
 
 PointCloud SubSample::operator()(const PointCloud &inCloud) const {
   PointCloud cloud = random_sample(inCloud, _desiredMaxPoints);
-  auto min = cloud.min();
-  auto max = cloud.max();
+  auto min = cloud.posMin();
+  auto max = cloud.posMax();
 
   BOOST_LOG_TRIVIAL(debug) << "Subsampled point cloud to " << cloud.size()
                            << " points, xyz-min: [" << min[0] << ", " << min[1]

@@ -25,12 +25,12 @@ std::vector<Cluster> MeanShift::operator()(const PointCloud &cloud) const {
     return std::vector<Cluster>();
   }
 
-  const int dimensions = cloud[0].eigenVec().size();
+  const int dimensions = cloud.charDim();
 
   Oracle::PointList points;
   points.resize(dimensions, cloud.size());
   for (PointIndex i = 0; i < cloud.size(); i += 1) {
-    auto v = cloud[i].eigenVec();
+    auto v = cloud[i].characteristic();
     points.col(i) = v;
   }
 

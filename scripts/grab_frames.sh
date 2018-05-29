@@ -10,7 +10,7 @@
 
 # Checks if file exists, copies if yes, throws warning if not.
 function check_and_copy {
-    if [ -f $1 ]
+if [ -f $1 ]
 then
   cp $1 $2
 else
@@ -34,14 +34,19 @@ fi
 check_and_copy $1/params_R.csv $2/
 check_and_copy $1/params_camchain.csv $2/
 
+disp=disparity
 
 for i in `seq $3 $4 $5`;
 do
-    check_and_copy $1/params_f_$i.csv $2/
-    for j in `seq ${6-1} ${7-4}`;
-    do
-	check_and_copy $1/disparity_normalized_s_${j}_f_$i.png $2/
-	check_and_copy $1/disparity_s_${j}_f_$i.png $2/
-	check_and_copy $1/pic_s_${j}_f_$i.png $2/
-    done
+  check_and_copy $1/params_f_$i.csv $2/
+  for j in `seq ${6-1} ${7-4}`;
+  do
+    if [ -f $1/depth_s_${j}_f_$i.png ]
+    then
+      disp=depth
+    fi
+	  check_and_copy $1/${disp}_normalized_s_${j}_f_$i.png $2/
+	  check_and_copy $1/${disp}_s_${j}_f_$i.png $2/
+	  check_and_copy $1/pic_s_${j}_f_$i.png $2/
+  done
 done

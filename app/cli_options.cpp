@@ -26,10 +26,10 @@ op::options_description cli_options() {
 
   // pipeline modules
   ad("pipeline-reader", op::value<std::string>()->default_value("auto"), "Which reader module to use. Valid values: auto, matlab, matlab-concurrent, ros-bag; auto picks 'matlab-concurrent' for source directories and 'ros-bag' in case a bag file is given");
-  ad("pipeline-frame-window-filtering", op::value<std::vector<std::string>>()->multitoken(), "Which filtering modules to apply to a frame window. Valid values: none, disparity-gauss, disparity-median, disparity-bilateral, disparity-morph-open, disparity-morph-close, background-subtraction");
+  ad("pipeline-frame-window-filtering", op::value<std::vector<std::string>>()->multitoken(), "Which filtering modules to apply to a frame window. Valid values: none, disparity-gauss, disparity-median, disparity-bilateral, disparity-morph-open, disparity-morph-close, background-subtraction, hog-labeling, strict-labeling");
   ad("pipeline-registration", op::value<std::string>()->default_value("disparity-cpu-optimized"), "Which registration module to use. Valid values: none, disparity, disparity-cpu-optimized");
   ad("pipeline-point-cloud-filtering", op::value<std::vector<std::string>>()->multitoken(), "Which filtering modules to use. Valid values: none, subsample, statistical-outlier-removal");
-  ad("pipeline-clustering", op::value<std::string>()->default_value("mean-shift"), "Which clustering module to use. Valid values: none, single-cluster, mean-shift, mean-shift-cpu-optimized, kmeans");
+  ad("pipeline-clustering", op::value<std::string>()->default_value("mean-shift"), "Which clustering module to use. Valid values: none, single-cluster, mean-shift, mean-shift-cpu-optimized, kmeans, label-clustering");
   ad("pipeline-descripting", op::value<std::string>()->default_value("cog"), "Which descripting module to use. Valid values: none, cog");
   ad("pipeline-matching", op::value<std::string>()->default_value("nearest-neighbor"), "Which matching module to use. Valid values: none, nearest-neighbor");
   ad("pipeline-trajectory-builder", op::value<std::string>()->default_value("raw-cog"), "Which matching module to use. Valid values: none, raw-cog");
@@ -52,6 +52,7 @@ op::options_description cli_options() {
   ad("background-subtraction-cage-frame", op::value<int>()->default_value(-1), "Number of a frame with empty cage. Default: choose first frame of input.");
   ad("background-subtraction-cage-directory", op::value<std::string>(), "Path to directory with empty cage. Default: src");
   ad("background-subtraction-cage-camchain", op::value<std::string>(), "Path to camchain file for empty cage.");
+  ad("hog-labeling-train", op::value<std::string>(), "Path to training data for HOG labeling.");
 
   // point cloud post processing
 

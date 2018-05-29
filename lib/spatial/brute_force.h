@@ -47,6 +47,7 @@ public:
   virtual std::vector<PointIndex> find_closest(const Point &p,
                                                unsigned int k) const {
     assert(_points != nullptr);
+    assert(k >= 1);
     typedef std::pair<Precision, PointIndex> P;
     std::priority_queue<P> candidates;
     auto dists = (_points->colwise() - p).colwise().squaredNorm();

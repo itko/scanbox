@@ -34,7 +34,7 @@ std::vector<std::vector<double>> GenerateNColors(int n) {
   Mat coloured;
   applyColorMap(dummy, coloured, COLORMAP_JET);
   std::vector<std::vector<double>> colours;
-  for (auto i : intensity) {
+  for (size_t i = 0; i < intensity.size(); ++i) {
     colours.push_back({coloured.at<Vec3b>(0, i)[2], coloured.at<Vec3b>(0, i)[1],
                        coloured.at<Vec3b>(0, i)[0]});
   }

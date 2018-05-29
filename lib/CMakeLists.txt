@@ -3,10 +3,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # list here your source files (*.cpp) of your module
 set(source_files
+        classifier/knn.cpp
         clustering/kmeans.cpp
         clustering/mean_shift.cpp
         clustering/mean_shift_cpu_optimized.cpp
         clustering/single_cluster.cpp
+        clustering/label_clustering.cpp
         generic/cluster.cpp
         generic/cluster_chain.cpp
         generic/cluster_chain_accumulator.cpp
@@ -32,6 +34,8 @@ set(source_files
         frame_window_filtering/disparity_median.cpp
         frame_window_filtering/disparity_morphology.cpp
         frame_window_filtering/background_subtraction.cpp
+        frame_window_filtering/hog_labeling.cpp
+        frame_window_filtering/strict_labeling.cpp
         point_cloud_filtering/statistical_outlier_removal.cpp
         point_cloud_filtering/subsample.cpp
         registration/disparity_registration.cpp

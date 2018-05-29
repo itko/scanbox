@@ -16,8 +16,8 @@ StatisticalOutlierRemoval::StatisticalOutlierRemoval(double alpha, int k)
 
 PointCloud StatisticalOutlierRemoval::
 operator()(const PointCloud &inCloud) const {
-  auto bb_min = inCloud.min();
-  auto bb_max = inCloud.max();
+  auto bb_min = inCloud.charMin();
+  auto bb_max = inCloud.charMax();
   auto bb_size = bb_max - bb_min;
 
   // division arbitrary, heuristic for better choice?

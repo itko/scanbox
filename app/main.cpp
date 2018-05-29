@@ -145,6 +145,9 @@ int main(int argc, char *argv[]) {
       controller->pipeline().addObserver(writer.get());
       // TODO: we should make this configurable at some points
       writer->writeRawFrameWindow = false;
+      // by default, remove label 5, which in our case is background
+      // TODO: This should be configurable
+      writer->labelsToIgnore().insert(5);
     }
   } catch (const std::string &e) {
     std::cerr << "Exception caught while creating pipeline: " << e << std::endl;

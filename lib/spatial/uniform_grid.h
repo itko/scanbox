@@ -160,6 +160,7 @@ public:
   virtual std::vector<PointIndex> find_closest(const Point &p,
                                                unsigned int k) const {
     assert(points != nullptr);
+    assert(k >= 1);
     // idea: we define hollow cubes around the cell containing p, called layers
     // we search the layers from the inside to the outside
     // if we have enough closest candidates, we stop as soon as our active

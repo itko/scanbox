@@ -12,6 +12,9 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/log/trivial.hpp>
 
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/opencv.hpp>
+
 namespace MouseTrack {
 
 PipelineWriter::PipelineWriter(fs::path targetDir)
@@ -22,10 +25,21 @@ PipelineWriter::PipelineWriter(fs::path targetDir)
       _rawFrameWindowRawDisparityPath("disparity_s_<streamNumber>_f_<frameNumber>.png"),
       _rawFrameWindowReferencePath("pic_s_<streamNumber>_f_<frameNumber>.png"),
       _rawFrameWindowParamsPath("pic_f_<frameNumber>.csv"),
+      _filteredFrameWindowPath("filtered_frame_window"),
+      _filteredFrameWindowDisparityPath("disparity_normalized_s_<streamNumber>_f_<frameNumber>.png"),
+      _filteredFrameWindowRawDisparityPath("disparity_s_<streamNumber>_f_<frameNumber>.png"),
+      _filteredFrameWindowReferencePath("pic_s_<streamNumber>_f_<frameNumber>.png"),
+      _filteredFrameWindowParamsPath("pic_f_<frameNumber>.csv"),
+      _filteredFrameWindowLabelsPath("label_s_<streamNumber>_l_<labelNumber>_f_<frameNumber>.png"),
+      _filteredFrameWindowLabelsOverlayPath("label_overlay_s_<streamNumber>_l_<labelNumber>_f_<frameNumber>.png"),
+      _filteredFrameWindowLabelsOverlayMaskedPath("label_overlay_masked_s_<streamNumber>_l_<labelNumber>_f_<frameNumber>.png"),
       _rawPointCloudPath("raw_point_cloud_<frameNumber>.ply"),
+      _rawPointCloudMetricsPath("raw_point_cloud_metrics_<frameNumber>.csv"),
       _filteredPointCloudPath("filtered_point_cloud_<frameNumber>.ply"),
+      _filteredPointCloudMetricsPath("filtered_point_cloud_metrics_<frameNumber>.txt"),
       _clusteredPointCloudPath("clustered_point_cloud_<frameNumber>.ply"),
       _clustersPath("clusters_<frameNumber>.csv"),
+      _clustersCoGsPath("cluster_cogs_<frameNumber>.csv"),
       _descriptorsPath("descriptors_<frameNumber>.csv"),
       _matchesPath("matches_<frameNumber>.csv"),
       _controlPointsPath("controlPoints_<frameNumber>.csv"),
@@ -41,6 +55,15 @@ PipelineWriter::PipelineWriter(fs::path targetDir)
         << "Target output path is not a directory: " << _outputDir;
     throw "Target path not a directory.";
   }
+
+  // create default coloring
+  _forcedNColors.resize(6);
+  _forcedNColors[0] = std::vector<double>{255, 0, 0};
+  _forcedNColors[1] = std::vector<double>{0, 255, 0};
+  _forcedNColors[2] = std::vector<double>{0, 0, 255};
+  _forcedNColors[3] = std::vector<double>{125, 0, 0};
+  _forcedNColors[4] = std::vector<double>{0, 125, 0};
+  _forcedNColors[5] = std::vector<double>{0, 0, 125};
 }
 
 void PipelineWriter::newFrameWindow(FrameNumber f,
@@ -60,7 +83,11 @@ void PipelineWriter::newFrameWindow(FrameNumber f,
     fs::path dispRaw = base / insertFrame(insertStream(_rawFrameWindowDisparityPath, s), f);
     // clang-format on
     const Frame &frame = window->frames()[s];
-    writeFrame(frame, ref.string(), dispNorm.string(), dispRaw.string());
+
+    writePng(frame.referencePicture, ref.string());
+    writePng(frame.rawDisparityMap, dispRaw.string());
+    writePng(frame.normalizedDisparityMap, dispNorm.string());
+
     params(s, 0) = frame.focallength;
     params(s, 1) = frame.baseline;
     params(s, 2) = frame.ccx;
@@ -77,6 +104,148 @@ void PipelineWriter::newFrameWindow(FrameNumber f,
   write_csv(paramsPath.string(), paramsVec);
 }
 
+void PipelineWriter::newFilteredFrameWindow(
+    FrameNumber f, std::shared_ptr<const FrameWindow> window) {
+  if (!writeFilteredFrameWindow || window->frames().empty()) {
+    return;
+  }
+  fs::path base = _outputDir / insertFrame(_filteredFrameWindowPath, f);
+  if (!fs::exists(base)) {
+    fs::create_directory(base);
+  }
+  Eigen::MatrixXd params(window->frames().size(), 4);
+  for (StreamNumber s = 0; (size_t)s < window->frames().size(); ++s) {
+    // clang-format off
+    fs::path ref = base / insertFrame(insertStream(_filteredFrameWindowReferencePath, s), f);
+    fs::path dispNorm = base / insertFrame(insertStream(_filteredFrameWindowRawDisparityPath, s), f);
+    fs::path dispRaw = base / insertFrame(insertStream(_filteredFrameWindowDisparityPath, s), f);
+    // clang-format on
+    const Frame &frame = window->frames()[s];
+
+    writePng(frame.referencePicture, ref.string());
+    writePng(frame.rawDisparityMap, dispRaw.string());
+    writePng(frame.normalizedDisparityMap, dispNorm.string());
+
+    for (size_t l = 0; l < frame.labels.size(); ++l) {
+      const auto &label = frame.labels[l];
+      // clang-format off
+      fs::path labelP = base / insertLabel(insertFrame(insertStream(_filteredFrameWindowLabelsPath, s), f), l);
+      // clang-format on
+      writePng(label, labelP.string());
+    }
+
+    params(s, 0) = frame.focallength;
+    params(s, 1) = frame.baseline;
+    params(s, 2) = frame.ccx;
+    params(s, 3) = frame.ccy;
+  }
+  fs::path paramsPath = base / insertFrame(_filteredFrameWindowParamsPath, f);
+  std::vector<std::vector<Precision>> paramsVec(window->frames().size());
+  const int paramCount = 4;
+  for (int i = 0; (size_t)i < window->frames().size(); ++i) {
+    for (int j = 0; j < paramCount; ++j) {
+      paramsVec[i].push_back(params(i, j));
+    }
+  }
+  write_csv(paramsPath.string(), paramsVec);
+  // stuff following now, is a "for convenience" as it can also easily be
+  // generated from the previous outputs
+  if (!writeFilteredFrameWindowExtensions ||
+      window->frames()[0].labels.empty()) {
+    return;
+  }
+  size_t maxLabelCount = 0;
+  for (StreamNumber s = 0; (size_t)s < window->frames().size(); ++s) {
+    maxLabelCount = std::max(maxLabelCount, window->frames()[s].labels.size());
+  }
+  auto colors = nColors(maxLabelCount);
+  // write max-label image
+  for (StreamNumber s = 0; (size_t)s < window->frames().size(); ++s) {
+    const Frame &frame = window->frames()[s];
+    int rows = frame.labels[0].rows();
+    int cols = frame.labels[0].cols();
+    // ignore background
+    cv::Mat allLabels(rows, cols, CV_64FC3);
+    for (int y = 0; y < rows; ++y) {
+      for (int x = 0; x < cols; ++x) {
+        double v = 0;
+        int maxL = 0;
+        for (size_t l = 0; l < frame.labels.size(); ++l) {
+          if (labelsToIgnore().find(l) != labelsToIgnore().end()) {
+            continue;
+          }
+          auto c = frame.labels[l](y, x);
+          if (v < c) {
+            v = c;
+            maxL = l;
+          }
+        }
+        allLabels.at<cv::Vec3d>(y, x)[0] = colors[maxL][0];
+        allLabels.at<cv::Vec3d>(y, x)[1] = colors[maxL][1];
+        allLabels.at<cv::Vec3d>(y, x)[2] = colors[maxL][2];
+      }
+    }
+    // clang-format off
+    fs::path allPath = base / insertLabel(insertFrame(insertStream(_filteredFrameWindowLabelsPath, s), f), 9999);
+    // clang-format on
+
+    try {
+      cv::imwrite(allPath.string(), allLabels);
+    } catch (std::runtime_error &ex) {
+      BOOST_LOG_TRIVIAL(warning)
+          << "Exception converting image to PNG format: " << ex.what();
+    }
+  }
+  // write label overlays
+  for (StreamNumber s = 0; (size_t)s < window->frames().size(); ++s) {
+    const Frame &frame = window->frames()[s];
+    auto mask = frame.normalizedDisparityMap.array() > 0.0;
+    cv::Mat refImg;
+
+    // why 255??
+    Eigen::MatrixXf refF = frame.referencePicture.cast<float>() * 255;
+
+    cv::eigen2cv(refF, refImg);
+    cv::cvtColor(refImg, refImg, cv::COLOR_GRAY2BGR);
+    for (size_t l = 0; l < frame.labels.size(); ++l) {
+      const auto &label = frame.labels[l]; // * mask;
+      // clang-format off
+      fs::path overlayP = base / insertLabel(insertFrame(insertStream(_filteredFrameWindowLabelsOverlayPath, s), f), l);
+      fs::path overlayMP = base / insertLabel(insertFrame(insertStream(_filteredFrameWindowLabelsOverlayMaskedPath, s), f), l);
+      // clang-format on
+      cv::Mat overlay(label.rows(), label.cols(), CV_32FC3);
+      cv::Mat overlayM(label.rows(), label.cols(), CV_32FC3);
+      const auto &c = colors[l];
+      for (int y = 0; y < label.rows(); ++y) {
+        for (int x = 0; x < label.cols(); ++x) {
+          auto m = mask(y, x);
+          auto a = label(y, x);
+          if (!std::isfinite(a)) {
+            a = 0.0;
+          }
+          overlay.at<cv::Vec3f>(y, x)[0] = c[0] * a;
+          overlay.at<cv::Vec3f>(y, x)[1] = c[1] * a;
+          overlay.at<cv::Vec3f>(y, x)[2] = c[2] * a;
+          overlayM.at<cv::Vec3f>(y, x)[0] = c[0] * a * m;
+          overlayM.at<cv::Vec3f>(y, x)[1] = c[1] * a * m;
+          overlayM.at<cv::Vec3f>(y, x)[2] = c[2] * a * m;
+        }
+      }
+      float alpha = 0.6;
+      cv::Mat result, resultM;
+      result = alpha * overlay + refImg;
+      resultM = alpha * overlayM + refImg;
+      try {
+        cv::imwrite(overlayP.string(), result);
+        cv::imwrite(overlayMP.string(), resultM);
+      } catch (std::runtime_error &ex) {
+        BOOST_LOG_TRIVIAL(warning)
+            << "Exception converting image to PNG format: " << ex.what();
+      }
+    }
+  }
+}
+
 void PipelineWriter::newRawPointCloud(FrameNumber f,
                                       std::shared_ptr<const PointCloud> cloud) {
   _clouds[f] = cloud;
@@ -84,7 +253,9 @@ void PipelineWriter::newRawPointCloud(FrameNumber f,
     return;
   }
   fs::path path = _outputDir / insertFrame(_rawPointCloudPath, f);
+  fs::path pathMetrics = _outputDir / insertFrame(_rawPointCloudMetricsPath, f);
   write_point_cloud(path.string(), *cloud);
+  write_point_cloud_metrics(pathMetrics.string(), *cloud);
 }
 
 void PipelineWriter::newFilteredPointCloud(
@@ -96,7 +267,10 @@ void PipelineWriter::newFilteredPointCloud(
   }
 
   fs::path path = _outputDir / insertFrame(_filteredPointCloudPath, f);
+  fs::path pathMetrics =
+      _outputDir / insertFrame(_filteredPointCloudMetricsPath, f);
   write_point_cloud(path.string(), *cloud);
+  write_point_cloud_metrics(pathMetrics.string(), *cloud);
 }
 
 void PipelineWriter::newClusters(
@@ -137,6 +311,15 @@ void PipelineWriter::newClusters(
   }
   fs::path cloudPath = _outputDir / insertFrame(_clusteredPointCloudPath, f);
   write_point_cloud(cloudPath.string(), cloud);
+
+  fs::path cogsPath = _outputDir / insertFrame(_clustersCoGsPath, f);
+  std::vector<std::vector<double>> controlPoints;
+  for (const auto &c : *clusters) {
+    const auto p = c.center_of_gravity(cloud);
+    controlPoints.push_back(std::vector<double>{p[0], p[1], p[2]});
+  }
+
+  write_csv(cogsPath.string(), controlPoints);
 }
 
 void PipelineWriter::newDescriptors(
@@ -179,6 +362,12 @@ void PipelineWriter::newControlPoints(
   }
   fs::path path = _outputDir / insertFrame(_controlPointsPath, f);
   write_csv(path.string(), tmp);
+}
+
+std::string PipelineWriter::insertLabel(const std::string &templatePath,
+                                        int l) const {
+  return boost::replace_all_copy(templatePath, "<labelNumber>",
+                                 std::to_string(l));
 }
 
 std::string PipelineWriter::insertFrame(const std::string &templatePath,
@@ -226,29 +415,29 @@ void PipelineWriter::newClusterChains(
 
 std::vector<std::vector<double>> PipelineWriter::nColors(int n) const {
   auto cols = GenerateNColors(n);
+  auto min = std::min(cols.size(), _forcedNColors.size());
+  std::copy(_forcedNColors.begin(), _forcedNColors.begin() + min, cols.begin());
   return cols;
 }
 
-void PipelineWriter::writeFrame(const Frame &frame,
-                                const std::string &referencePath,
-                                const std::string &rawDisparityPath,
-                                const std::string &disparityPath) const {
-  const auto &dispNorm = frame.normalizedDisparityMap;
-  const auto &dispRaw = frame.rawDisparityMap;
-  const auto &refImg = frame.referencePicture;
-  if (dispNorm.size() > 0) {
-    writePng(dispNorm, disparityPath);
-  }
-  if (dispRaw.size() > 0) {
-    writePng(dispRaw, rawDisparityPath);
-  }
-  if (refImg.size() > 0) {
-    writePng(refImg, referencePath);
-  }
+std::vector<std::vector<double>> &PipelineWriter::forcedNColors() {
+  return _forcedNColors;
+}
+
+const std::vector<std::vector<double>> &PipelineWriter::forcedNColors() const {
+  return _forcedNColors;
+}
+
+std::set<size_t> &PipelineWriter::labelsToIgnore() { return _labelsToIgnore; }
+const std::set<size_t> &PipelineWriter::labelsToIgnore() const {
+  return _labelsToIgnore;
 }
 
 void PipelineWriter::writePng(const PictureD &pic,
                               const std::string &path) const {
+  if (pic.size() == 0) {
+    return;
+  }
   write_png(pic, path);
 }
 
